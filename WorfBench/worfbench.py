@@ -1,9 +1,8 @@
 from collections import defaultdict, deque
 from Transformers.graph_to_sysml import transform_into_sysml
 from datasets import load_dataset
-import re
-import json
 import csv
+import re
 
 import subprocess
 import sys
@@ -20,10 +19,6 @@ def extract_user_prompt_and_source(example):
 
 
 # function to extract the nodes (actions) and the edges from one dataset example
-import re
-
-import re
-
 def extract_nodes_and_edges(example):
     conversations = example["messages"]
 
@@ -42,25 +37,20 @@ def extract_nodes_and_edges(example):
     node_section = text
     if m:
         tail = text[m.end():]
-        # stop at Edge / ### / etc. (keep your stop if you want)
         stop = re.search(r'(?im)^\s*(?:\*\*.*Edge.*\*\*|Edge|Edges|###)\b', tail)
         node_section = tail[:stop.start()] if stop else tail
 
-    # 1) strict colon nodes
     node_pattern_colon = re.compile(r'^\s*(\d+)\s*:\s*(.+)$', re.MULTILINE)
     found = node_pattern_colon.findall(node_section)
 
-    # 2) fallback dot/colon nodes only if colon style not found
     if not found:
         node_pattern_any = re.compile(r'^\s*(\d+)\s*[\.:]\s*(.+)$', re.MULTILINE)
         found = node_pattern_any.findall(node_section)
 
     nodes = {str(int(i)): content.strip() for i, content in found}
 
-    # Edges (strict)
     edge_tuple_re = re.compile(r"\(\s*((?:START|END|\d+))\s*,\s*((?:START|END|\d+))\s*\)")
 
-    # 1) Prefer "Edges" section
     edges_header = re.search(
         r'(?im)^\s*(?:\*\*\s*Edges\s*:\s*\*\*|\*\*\s*Edges\s*\*\*\s*:|Edges\s*:)\s*',
         text
@@ -69,16 +59,13 @@ def extract_nodes_and_edges(example):
     if edges_header:
         edge_part = text[edges_header.end():]
     else:
-        # 2) Fallback: after "Edge:"
         edge_marker = re.search(r'(?im)^\s*Edge\s*:\s*', text)
         if edge_marker:
             edge_part = text[edge_marker.end():]
         else:
-            # 3) Fallback: lines that mention "Edge" (e.g., "- **Edge**: (1,2)")
             edge_lines = "\n".join(re.findall(r'(?im)^\s*[-*]?\s*.*\bEdge\b.*$', text))
             edge_part = edge_lines
 
-    # stop at next header (optional)
     if edge_part:
         stop = re.search(r'(?im)^\s*(Node|Nodes|Graph|Notes?|Output|Example)\s*:\s*', edge_part)
         if stop:
@@ -172,6 +159,8 @@ if __name__ == "__main__":
     print(format_graph(extract_nodes_and_edges(ds_filtered[9774])))
     graph_none = 0
     nodes_issue = 0
+
+    #loop over all instances, keep track of bad instances
     for idx in range(len(ds_filtered)):
 
         instance = ds_filtered[idx]
