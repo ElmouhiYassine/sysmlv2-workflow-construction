@@ -3,7 +3,8 @@ from Transformers.graph_to_sysml import transform_into_sysml
 from datasets import load_dataset
 import csv
 import re
-
+import os
+import pandas as pd
 import subprocess
 import sys
 ds = load_dataset("zjunlp/WorFBench_train")
@@ -11,9 +12,10 @@ ds = load_dataset("zjunlp/WorFBench_train")
 def extract_user_prompt_and_source(example):
     conversations = example["messages"]
     source = example["source"]
-    reversed(conversations)
-    msg = conversations[1]['content'].split('\n')
-    prompt = msg[1].split(':')[1]
+    msg = conversations[-2]['content'].split('Now it\'s your turn.\n')
+    prompt = ",".join(msg[1].split(',')[0:-1])
+    if prompt[0:5] == 'Task:':
+        prompt = prompt[5:]
     return prompt, source
 
 
@@ -52,7 +54,7 @@ def extract_nodes_and_edges(example):
     edge_tuple_re = re.compile(r"\(\s*((?:START|END|\d+))\s*,\s*((?:START|END|\d+))\s*\)")
 
     edges_header = re.search(
-        r'(?im)^\s*(?:\*\*\s*Edges\s*:\s*\*\*|\*\*\s*Edges\s*\*\*\s*:|Edges\s*:)\s*',
+        r'(?im)^\s*(?:\*\*)?\s*Edges?\s*(?:\*\*)?\s*:\s*',
         text
     )
 
@@ -73,6 +75,28 @@ def extract_nodes_and_edges(example):
 
     edges = [(a.strip(), b.strip()) for a, b in edge_tuple_re.findall(edge_part)]
 
+    indeg_p = defaultdict(int)
+    indeg_c = defaultdict(int)
+    nodes_in_edges = set()
+
+    for u, v in edges:
+        indeg_c[u] += 1
+        indeg_p[v] += 1
+        nodes_in_edges.add(u)
+        nodes_in_edges.add(v)
+
+    start_nodes = [n for n in nodes_in_edges if indeg_p[n] == 0 and n != "START"]
+    end_nodes = [n for n in nodes_in_edges if indeg_c[n] == 0 and n != "END"]
+
+    # add START/END only if not present already
+    if not any(u == "START" for u, _ in edges):
+        for n in start_nodes:
+            edges.append(("START", n))
+
+    if not any(v == "END" for _, v in edges):
+        for n in end_nodes:
+            edges.append((n, "END"))
+
     return {"nodes": nodes, "edges": edges}
 
 
@@ -89,8 +113,6 @@ def format_graph(graph):
     for e in graph["edges"]:
         out.append(f"{e}")
 
-    # with open("test1.txt", "w", encoding="utf-8") as f:
-    #     f.write("".join("\n".join(out)))
 
     return "\n".join(out)
 
@@ -125,7 +147,7 @@ def edge_nodes(edges):
         nodes.add(b)
     return nodes
 
-BAD_FILE = "bad_instance.csv"
+BAD_FILE = "bad_instances.csv"
 
 def log_bad(instance_id, reason):
     with open(BAD_FILE, mode="a", newline="", encoding="utf-8") as f:
@@ -139,55 +161,50 @@ if __name__ == "__main__":
     drop_sources = {"environment/alfworld"}
     ds_filtered = ds[split].filter(lambda x: x["source"] not in drop_sources)
 
-    # Choix instance
-    # 191
-    # 225
-    # 22
-    # 505
-    # idx = 520
 
-    # c_graph = {'nodes': {'1': 'action1.','2': 'action2.', '3': 'action3.','4': 'action3.', '5': 'action5.', '6': 'action6.','7': 'action7.', '8': 'action8.'},
-    #             'edges': [('START', '1'), ('1', '2'), ('1', '5'), ('2', '3'), ('2', '4'), ('3', '8'), ('5', '4'),('4', '7'), ('5', '6'), ('6', '7'), ('7', '8'), ('8', 'END')]}
-    #
-
-    filename = "worfbench_sysml.csv"
+    filename = "worfbench_sysmls.csv"
     headers = ["data", "source", "user_prompt", "sysml_code"]
 
-    print(len(ds_filtered))
-    a = ds_filtered[9774]['messages'][-1]
-    print(a)
-    print(format_graph(extract_nodes_and_edges(ds_filtered[9774])))
+    len_ds = len(ds_filtered)
+    print(f"Found {len_ds} instances.")
+
+    ok = 0
     graph_none = 0
     nodes_issue = 0
+    transform_fail = 0
 
-    #loop over all instances, keep track of bad instances
-    for idx in range(len(ds_filtered)):
+    k = 0
+
+    for idx in range(len_ds):
+        if (idx + 1) % 1000 == 0:
+            print("processed", idx + 1, "OK", ok, "nodes_issue", nodes_issue)
 
         instance = ds_filtered[idx]
-        user_prompt, source = extract_user_prompt_and_source(instance)
-        graph = extract_nodes_and_edges(instance)
 
+        user_prompt, source = extract_user_prompt_and_source(instance)
+
+        graph = extract_nodes_and_edges(instance)
         if graph is None:
             graph_none += 1
             log_bad(idx, "graph is None")
-            print('graph issue')
             continue
 
         declared = set(graph["nodes"].keys()) | {"START", "END"}
         referenced = {x for e in graph["edges"] for x in e}
 
-
         if referenced != declared:
             nodes_issue += 1
             log_bad(idx, f"node mismatch: declared={len(declared)} referenced={len(referenced)}")
-            print('nodes issue')
             continue
+
         try:
             sysml_code = transform_into_sysml(graph)
-        except Exception as e:
-            log_bad(idx, f"{type(e).__name__}: {e}")
-            print(f" transform failed for {idx}: {e}")
+        except Exception:
+            transform_fail += 1
+            log_bad(idx, f"{type(Exception).__name__}: {Exception}")
             continue
+
+        ok += 1
         row = [
             {
                 "data": "WorfBench",
@@ -196,11 +213,22 @@ if __name__ == "__main__":
                 "sysml_code": sysml_code
             }
         ]
+        file_exists = os.path.exists(filename)
+
         with open(filename, mode="a", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(file, fieldnames=headers)
-            if file.tell() == 0:
+
+            if not file_exists:
                 writer.writeheader()
+
             writer.writerows(row)
 
+    print("Total:", len_ds)
+    print("OK:", ok)
+    print("graph_none:", graph_none)
+    print("nodes_issue:", nodes_issue)
+    print("transform_fail:", transform_fail)
+    print("Sum:", ok + graph_none + nodes_issue + transform_fail)
 
-
+    df_check = pd.read_csv(filename)
+    print(len(df_check))

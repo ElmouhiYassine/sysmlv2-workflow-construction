@@ -25,6 +25,11 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
         for u, v in edges:
             succ[u].append(v)
             pred[v].append(u)
+        for i in node_text.keys():
+            if i not in succ.keys():
+                succ[i] = []
+            if i not in pred.keys():
+                pred[i] = []
 
         return succ, pred
 
@@ -33,10 +38,8 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
         action_defs = []
         # print(node_text)
         for node in sorted(node_text.keys(), key=sort_key):
-            # print(succ)
-            # print(pred)
-            # print(node)
-            if len(pred[node]) > 1 or len(succ[pred[node][0]]) == 1:
+
+            if len(pred[node]) > 1 or (len(pred[node]) > 0 and len(succ[pred[node][0]])) == 1:
                 prefix = f"{indent(2)}then "
             else :
                 prefix = f"{indent(2)}"
@@ -93,6 +96,11 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
 
                 for s in succ.get(node, []):
                     dfs(s)
+            # added code
+            else:
+                for p in pred[node]:
+                    if (len(pred[p]) == 0) and (p != 'START') and (p not in visited):
+                        dfs(p)
             return
         emit_action(node)
 
