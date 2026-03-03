@@ -5,8 +5,7 @@ import csv
 import re
 import os
 import pandas as pd
-import subprocess
-import sys
+
 ds = load_dataset("zjunlp/WorFBench_train")
 
 def extract_user_prompt_and_source(example):
