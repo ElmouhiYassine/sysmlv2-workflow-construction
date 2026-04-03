@@ -1124,6 +1124,16 @@ if __name__ == "__main__":
     for l in bpmn["lanes"].values():
         print("-", l["name"], "| pool:", l["pool"])
 
+    print("\n\nSEQUENCE EDGES:")
+    for e in bpmn.get("edges", {}).values():
+        if e.get("type") != "SequenceFlow":
+            continue
+        src = e.get("src")
+        tgt = e.get("tgt")
+        if not src or not tgt:
+            continue
+        print(f"{pretty_name(bpmn, src)} -> {pretty_name(bpmn, tgt)}")
+
     print("\n\nTASKS:")
     for t in bpmn.get("tasks", {}).values():
         name = " ".join(t.get("name", "").split())
@@ -1135,45 +1145,45 @@ if __name__ == "__main__":
             print("   doc:", clean_doc)
 
 
-    gw = analyze_gateways(bpmn)
-
-    print("\n\nPARALLEL GATEWAYS:")
-    for gid, g in gw.items():
-        print("-", g["name"])
-        print("   role:", g["role"])
-        print("   in :", g["in_degree"])
-        print("   out:", g["out_degree"])
-
-
-    print("\n\nInspecting pools:")
-    pool_cf = build_controlflow_per_pool(bpmn)
-    for pool_id in bpmn["pools"]:
-        print_pool_controlflow(bpmn, pool_cf, pool_id)
-
-    def reachable_from(pool_id, start):
-        seen = set()
-        q = deque([start])
-        while q:
-            u = q.popleft()
-            if u in seen:
-                continue
-            seen.add(u)
-            for v in pool_cf[pool_id]["succ"].get(u, []):
-                if v not in seen:
-                    q.append(v)
-        return seen
-
-    demo_pool_id = next(iter(bpmn["pools"]), None)
-    if demo_pool_id:
-        start_nodes = pool_cf[demo_pool_id]["start_nodes"]
-        start = start_nodes[0] if start_nodes else None
-        reach = reachable_from(demo_pool_id, start)
-
-        print("\n\nREACHABLE FROM START:")
-        for nid in reach:
-            print("-", pretty_name(bpmn, nid))
-
-
-    data_model = extract_data_associations(bpmn,data_node_types,flow_node_types)
-
-    print_data_summary(data_model)
+    # gw = analyze_gateways(bpmn)
+    #
+    # print("\n\nPARALLEL GATEWAYS:")
+    # for gid, g in gw.items():
+    #     print("-", g["name"])
+    #     print("   role:", g["role"])
+    #     print("   in :", g["in_degree"])
+    #     print("   out:", g["out_degree"])
+    #
+    #
+    # print("\n\nInspecting pools:")
+    # pool_cf = build_controlflow_per_pool(bpmn)
+    # for pool_id in bpmn["pools"]:
+    #     print_pool_controlflow(bpmn, pool_cf, pool_id)
+    #
+    # def reachable_from(pool_id, start):
+    #     seen = set()
+    #     q = deque([start])
+    #     while q:
+    #         u = q.popleft()
+    #         if u in seen:
+    #             continue
+    #         seen.add(u)
+    #         for v in pool_cf[pool_id]["succ"].get(u, []):
+    #             if v not in seen:
+    #                 q.append(v)
+    #     return seen
+    #
+    # demo_pool_id = next(iter(bpmn["pools"]), None)
+    # if demo_pool_id:
+    #     start_nodes = pool_cf[demo_pool_id]["start_nodes"]
+    #     start = start_nodes[0] if start_nodes else None
+    #     reach = reachable_from(demo_pool_id, start)
+    #
+    #     print("\n\nREACHABLE FROM START:")
+    #     for nid in reach:
+    #         print("-", pretty_name(bpmn, nid))
+    #
+    #
+    # data_model = extract_data_associations(bpmn,data_node_types,flow_node_types)
+    #
+    # print_data_summary(data_model)
