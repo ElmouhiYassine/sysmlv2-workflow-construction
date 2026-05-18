@@ -764,26 +764,33 @@ def print_sopbench_metrics(report):
 
 
 def run_sopbench_transformation_to_csv(
-    output_csv: str = "sopbench_sysml.csv",
+    output_csv: str = "sopbench_sysmlv2.csv",
     splits=("train", "test"),
     limit_per_split=None,
     progress_every: int = 1000,
 ):
-    # Build one CSV with all transformed SOPBench workflows.
     ds = load_dataset("Zekunli/SOPBench")
     print("Available splits:", ds.keys())
 
     output_path = output_csv
     if not os.path.isabs(output_path):
-        output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), output_path)
+        output_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            output_path,
+        )
 
-    headers = ["data", "user_prompt", "sysml_code"]
+    headers = ["origin", "user_prompt", "sysml_model"]
+
     ok = 0
     parse_fail = 0
     transform_fail = 0
 
-    with open(output_path, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.DictWriter(file, fieldnames=headers)
+    with open(output_path, mode="w", newline="", encoding="utf-8-sig") as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=headers,
+            quoting=csv.QUOTE_ALL,
+        )
         writer.writeheader()
 
         for split in splits:
@@ -792,14 +799,23 @@ def run_sopbench_transformation_to_csv(
                 continue
 
             data = ds[split]
-            total = len(data) if limit_per_split is None else min(limit_per_split, len(data))
+
+            total = (
+                len(data)
+                if limit_per_split is None
+                else min(limit_per_split, len(data))
+            )
+
             print(f"Processing split '{split}' with {total} samples")
 
             for i in range(total):
+
                 if progress_every > 0 and (i + 1) % progress_every == 0:
                     print(
                         f"split={split} processed={i + 1}/{total} "
-                        f"OK={ok} parse_fail={parse_fail} transform_fail={transform_fail}"
+                        f"OK={ok} "
+                        f"parse_fail={parse_fail} "
+                        f"transform_fail={transform_fail}"
                     )
 
                 sample = data[i]
@@ -812,28 +828,42 @@ def run_sopbench_transformation_to_csv(
 
                 try:
                     transformed = transform_or_nodes_to_fallback(graph)
-                    pkg_name = sanitize_name(str(sample.get("domain") or "SOPBenchPackage"))
-                    action_def_name = sanitize_name(str(sample.get("user_goal") or "Workflow"))
-                    sysml = build_sysml_from_transformed(
+
+                    pkg_name = sanitize_name(
+                        str(sample.get("domain") or "SOPBenchPackage")
+                    )
+
+                    action_def_name = sanitize_name(
+                        str(sample.get("user_goal") or "Workflow")
+                    )
+
+                    sysml_model = build_sysml_from_transformed(
                         transformed,
                         package_name=pkg_name,
                         action_def_name=action_def_name,
                         agent_part_name="WorkflowAgent",
                         agent_instance_name="workflowAgent",
                     )
+
                 except Exception:
                     transform_fail += 1
                     continue
 
-                user_prompt = sample.get("user_prompt") or extract_graph_description(sample)
+                user_prompt = (
+                    sample.get("user_prompt")
+                    or extract_graph_description(sample)
+                )
+
+                origin = f"sopbench::{split}::{i}"
 
                 writer.writerow(
                     {
-                        "data": "sop-bench",
+                        "origin": origin,
                         "user_prompt": user_prompt,
-                        "sysml_code": sysml,
+                        "sysml_model": sysml_model,
                     }
                 )
+
                 ok += 1
 
     print(f"Output CSV: {output_path}")
@@ -841,11 +871,10 @@ def run_sopbench_transformation_to_csv(
     print(f"parse_fail: {parse_fail}")
     print(f"transform_fail: {transform_fail}")
 
+
 if __name__ == "__main__":
-    # report = metrics_for_sopbench(split="train", Limit=None, progress_every=1000)
-    # print_sopbench_metrics(report)
     run_sopbench_transformation_to_csv(
-        output_csv="sopbench_sysml.csv",
+        output_csv="sopbench_sysmlv2.csv",
         splits=("train", "test"),
         limit_per_split=None,
         progress_every=1000,

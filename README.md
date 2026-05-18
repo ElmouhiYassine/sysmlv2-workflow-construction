@@ -63,6 +63,28 @@ python -u ".\WorfBench\worfbench.py"
 Output:
 - `WorfBench/worfbench_sysml.csv`
 
+## Dataset Columns
+
+Each dataset file contains the following columns:
+
+| Column        | Description                                                                              |
+|---------------|------------------------------------------------------------------------------------------|
+| `origin`      | Encodes the provenance of the workflow sample. The format depends on the source dataset. |
+| `user_prompt` | Natural language workflow description used as input for SysML v2 generation.             |
+| `sysml_model`     | Transformed SysML v2 workflow model.                                                     |
+
+### Origin Format
+
+The `origin` column preserves traceability to the original dataset sample.
+
+Examples:
+
+| Dataset | Example | Meaning |
+|---|---|---|
+| SOPBench | `sopbench::train::42` | sample 42 from the train split |
+| WorFBench | `worfbench::wikihow::test::15` | sample 15 from the `wikihow` source in the test split |
+| SAP-SAM | `sapsam::1::192` | row 192 from CSV file `1.csv` |
+
 ## License
 
 This project is licensed under the MIT License. full details in `LICENSE` file.

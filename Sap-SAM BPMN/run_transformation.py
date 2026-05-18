@@ -102,8 +102,9 @@ def run_bpmn_batch_transform_folder(
     bpmns_index_csv: str = "bpmns.csv",
 ):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_csv = os.path.join(script_dir, "sapsam_sysml.csv")
-    headers = ["csv_name", "row_index", "data", "source", "user_prompt", "sysml_code"]
+    output_csv = os.path.join(script_dir, "sapsam_sysmlv2.csv")
+
+    headers = ["origin", "user_prompt", "sysml_model"]
 
     out_file = open(output_csv, mode="w", newline="", encoding="utf-8")
     writer = csv.DictWriter(out_file, fieldnames=headers)
@@ -120,6 +121,7 @@ def run_bpmn_batch_transform_folder(
             "empty_json": 0,
             "json_parse_fail": 0,
             "non_bpmn": 0,
+            "non_sysml_v2_stencil": 0,
             "non_english_detected": 0,
             "extract_fail": 0,
             "transform_fail": 0,
@@ -241,14 +243,13 @@ def run_bpmn_batch_transform_folder(
 
                 counts["ok"] += 1
                 counts["indexed_bpmns"] += 1
+                origin = f"sapsam::{csv_name}::{i}"
+
                 writer.writerow(
                     {
-                        "csv_name": csv_name,
-                        "row_index": i,
-                        "data": "sapsam",
-                        "source": "sapsam",
-                        "user_prompt": None,
-                        "sysml_code": generated_sysml_code,
+                        "origin": origin,
+                        "user_prompt": "",
+                        "sysml_model": generated_sysml_code,
                     }
                 )
 

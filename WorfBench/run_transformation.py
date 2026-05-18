@@ -302,11 +302,16 @@ def log_bad(instance_id, reason):
 
 if __name__ == "__main__":
     drop_sources = {"environment/alfworld"}
-    filename = "worfbench_sysml.csv"
-    headers = ["data", "source", "user_prompt", "sysml_code"]
+    filename = "worfbench_sysmlv2.csv"
+
+    headers = ["origin", "user_prompt", "sysml_model"]
 
     splits_to_process = [s for s in ["train", "test"] if s in ds]
-    total_instances = sum(len(ds[s].filter(lambda x: x["source"] not in drop_sources)) for s in splits_to_process)
+    total_instances = sum(
+        len(ds[s].filter(lambda x: x["source"] not in drop_sources))
+        for s in splits_to_process
+    )
+
     metrics = ProcessingMetrics(total_instances=total_instances)
 
     action_counts = []
@@ -317,13 +322,20 @@ if __name__ == "__main__":
     print(f"Found {total_instances} instances across splits: {', '.join(splits_to_process)}")
 
     for split_name in splits_to_process:
-        ds_filtered = ds[split_name].filter(lambda x: x["source"] not in drop_sources)
+        ds_filtered = ds[split_name].filter(
+            lambda x: x["source"] not in drop_sources
+        )
+
         len_ds = len(ds_filtered)
         print(f"Processing split '{split_name}' with {len_ds} instances")
 
         for idx in range(len_ds):
             if metrics.total_processed % 1000 == 0 and metrics.total_processed > 0:
-                print(f"processed {metrics.total_processed} | OK: {metrics.ok} | Nodes Issue: {metrics.nodes_issue}")
+                print(
+                    f"processed {metrics.total_processed} | "
+                    f"OK: {metrics.ok} | "
+                    f"Nodes Issue: {metrics.nodes_issue}"
+                )
 
             metrics.total_processed += 1
 
@@ -342,7 +354,10 @@ if __name__ == "__main__":
 
             if referenced != declared:
                 metrics.nodes_issue += 1
-                log_bad(f"{split_name}:{idx}", f"node mismatch: declared={len(declared)} referenced={len(referenced)}")
+                log_bad(
+                    f"{split_name}:{idx}",
+                    f"node mismatch: declared={len(declared)} referenced={len(referenced)}"
+                )
                 continue
 
             try:
@@ -360,14 +375,16 @@ if __name__ == "__main__":
             join_counts.append(joins)
             fork_counts.append(forks)
 
+            origin = f"worfbench::{source}::{split_name}::{idx}"
+
             row = [
                 {
-                    "data": "WorfBench",
-                    "source": source,
+                    "origin": origin,
                     "user_prompt": user_prompt,
-                    "sysml_code": sysml_code
+                    "sysml_model": sysml_code,
                 }
             ]
+
             file_exists = os.path.exists(filename)
 
             with open(filename, mode="a", newline="", encoding="utf-8") as file:
@@ -378,12 +395,11 @@ if __name__ == "__main__":
 
                 writer.writerows(row)
 
-    # Print final metrics summary
     print("\nmetrics:")
     print_metrics(metrics)
 
     print("element metrics:")
     print_flow_metrics(action_counts, decision_counts, join_counts, fork_counts)
-    
+
     df_check = pd.read_csv(filename)
     print(f"\nTotal in output CSV: {len(df_check)}")
