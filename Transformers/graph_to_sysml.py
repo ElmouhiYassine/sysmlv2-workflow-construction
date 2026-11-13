@@ -4,8 +4,6 @@ import subprocess
 import sys
 
 
-nodes = {}
-
 def transform_into_sysml(graph: dict, package_name="PackageName", process_name="ProcessName"):
 
     def indent(level):
@@ -36,7 +34,6 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
     # function that generates the SysML action definitions
     def action_def():
         action_defs = []
-        # print(node_text)
         for node in sorted(node_text.keys(), key=sort_key):
 
             if len(pred[node]) > 1 or (len(pred[node]) > 0 and len(succ[pred[node][0]])) == 1:
@@ -62,7 +59,8 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
         if len(succ[node]) > 1:
             line = f'{indent(2)}then fork;'
             for suc in succ[node]:
-                line += f' then action{suc};'
+                if suc != 'END':
+                    line += f' then action{suc};'
             line += "\n"
             return True,line
         else:
@@ -96,7 +94,6 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
 
                 for s in succ.get(node, []):
                     dfs(s)
-            # added code
             else:
                 for p in pred[node]:
                     if (len(pred[p]) == 0) and (p != 'START') and (p not in visited):
@@ -137,9 +134,6 @@ def transform_into_sysml(graph: dict, package_name="PackageName", process_name="
     lines.append(f"{indent(1)}}}\n")
     lines.append("}\n")
 
-    # with open("test1.sysml", "w", encoding="utf-8") as f:
-    #     f.write("".join(lines))
-
     return "".join(lines)
 
 
@@ -158,7 +152,6 @@ def run_checker(sysml_file, jar_path = "sysml.jar"):
         print("\n Checker Error:\n")
         print(e.stderr)
         sys.exit(1)
-
 
 
 

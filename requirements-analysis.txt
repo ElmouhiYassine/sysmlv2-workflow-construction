@@ -1,0 +1,8 @@
+-r requirements.txt
+matplotlib
+numpy
+pyarrow
+scikit-learn
+scipy
+sentence-transformers
+jupyter

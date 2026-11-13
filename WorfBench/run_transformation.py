@@ -1,14 +1,16 @@
-from collections import defaultdict, deque
+from collections import defaultdict
 from Transformers.graph_to_sysml import transform_into_sysml
 from datasets import load_dataset
 import csv
 import re
 import os
 import statistics
+from pathlib import Path
 import pandas as pd
-from calculate_metrics import ProcessingMetrics, print_metrics
-
-
+if __package__:
+    from .calculate_metrics import ProcessingMetrics, print_metrics
+else:
+    from calculate_metrics import ProcessingMetrics, print_metrics
 # Load train/test splits
 
 def load_worfbench_splits():
@@ -290,8 +292,10 @@ def print_flow_metrics(action_counts, decision_counts, join_counts, fork_counts)
     print(f"frequencies global: {global_freq}")
 
 
-BAD_FILE = "bad_instances.csv"
+OUTPUT_DIR = Path(__file__).resolve().parent / "worfbench_dataset"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+BAD_FILE = OUTPUT_DIR / "bad_worfbench_instances.csv"
 
 def log_bad(instance_id, reason):
     with open(BAD_FILE, mode="a", newline="", encoding="utf-8") as f:
@@ -302,7 +306,8 @@ def log_bad(instance_id, reason):
 
 if __name__ == "__main__":
     drop_sources = {"environment/alfworld"}
-    filename = "worfbench_sysmlv2.csv"
+
+    filename = OUTPUT_DIR / "worfbench_sysmlv2.csv"
 
     headers = ["origin", "user_prompt", "sysml_model"]
 
@@ -387,7 +392,7 @@ if __name__ == "__main__":
 
             file_exists = os.path.exists(filename)
 
-            with open(filename, mode="a", newline="", encoding="utf-8") as file:
+            with open(str(filename), mode="a", newline="", encoding="utf-8") as file:
                 writer = csv.DictWriter(file, fieldnames=headers)
 
                 if not file_exists:
@@ -401,5 +406,5 @@ if __name__ == "__main__":
     print("element metrics:")
     print_flow_metrics(action_counts, decision_counts, join_counts, fork_counts)
 
-    df_check = pd.read_csv(filename)
+    df_check = pd.read_csv(str(filename))
     print(f"\nTotal in output CSV: {len(df_check)}")

@@ -1,1 +1,40 @@
-Sap-SAM BPMN/*.csv
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Test and tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter and operating-system files
+.ipynb_checkpoints/
+.DS_Store
+
+# Local IDE configuration
+.idea/
+.vscode/
+
+# Credentials and local environment configuration
+.env
+.env.*
+!.env.example
+
+# Temporary and resumable execution state
+*.log
+*.tmp
+*.sqlite-journal
+enriched_dataset_analysis/rag/normalization_state*.sqlite*
+rag_experiments/data/*state.sqlite*
+
+# Dataset inputs and generated CSV artifacts are local-only.
+*.csv
